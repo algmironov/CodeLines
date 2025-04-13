@@ -1,0 +1,93 @@
+{
+  "Date": "2025-04-13T11:46:27.6832374+03:00",
+  "FileCount": 17,
+  "LineCount": 735,
+  "FileStats": [
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.sln",
+      "LineCount": 33,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\CodeLines.Cli.csproj",
+      "LineCount": 16,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Program.cs",
+      "LineCount": 106,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Commands\\HistoryCommand.cs",
+      "LineCount": 20,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Commands\\IgnoreCommand.cs",
+      "LineCount": 29,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Commands\\InitCommand.cs",
+      "LineCount": 19,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Commands\\ScanCommand.cs",
+      "LineCount": 45,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Cli\\Properties\\launchSettings.json",
+      "LineCount": 8,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\CodeAnalyzer.cs",
+      "LineCount": 117,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\CodeLines.Common.csproj",
+      "LineCount": 7,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\FileHasher.cs",
+      "LineCount": 29,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\FileScanner.cs",
+      "LineCount": 55,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\IgnoreManager.cs",
+      "LineCount": 115,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\ProjectState.cs",
+      "LineCount": 113,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\Models\\AnalysisResult.cs",
+      "LineCount": 9,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\Models\\FileStats.cs",
+      "LineCount": 7,
+      "FileHash": null
+    },
+    {
+      "FilePath": "C:\\Users\\algmi\\source\\repos\\CodeLines\\CodeLines.Common\\Models\\HistoryEntry.cs",
+      "LineCount": 7,
+      "FileHash": null
+    }
+  ],
+  "FileHashes": {}
+}

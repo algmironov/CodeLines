@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CodeLines.Cli": {
+      "commandName": "Project",
+      "commandLineArgs": "scan -p C:\\Users\\algmi\\source\\repos\\CodeLines -v"
+    }
+  }
+}

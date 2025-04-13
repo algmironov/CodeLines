@@ -23,10 +23,10 @@ public class AnalysisResult
     /// <summary>
     /// Статистика по отдельным файлам (заполняется только при verbose=true)
     /// </summary>
-    public List<FileStats> FileStats { get; set; } = new List<FileStats>();
+    public List<FileStats> FileStats { get; set; } = [];
 
     /// <summary>
     /// Хэш-суммы файлов для быстрого определения изменений
     /// </summary>
-    public Dictionary<string, string> FileHashes { get; set; } = new Dictionary<string, string>();
+    public Dictionary<string, string> FileHashes { get; set; } = [];
 }

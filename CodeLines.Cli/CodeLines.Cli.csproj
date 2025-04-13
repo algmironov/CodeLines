@@ -8,9 +8,9 @@
     <PublishAot>false</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Title>Codelines</Title>
+    <Title>CodeLines</Title>
     <Authors>algmironov</Authors>
-    <Product>Codelines</Product>
+    <Product>CodeLines</Product>
     <Description>CLI app for calculating lines of code for target project</Description>
     <Copyright>MIT</Copyright>
     <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -19,6 +19,11 @@
     <PackageOutputPath>bin/package</PackageOutputPath>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+    <PackageId>CodeLines</PackageId>
+    <Version>1.0.1</Version>
+    <RepositoryUrl>https://github.com/algmironov/CodeLines</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>c#;dotnet;.net;cli</PackageTags>
   </PropertyGroup>
 
   <ItemGroup>

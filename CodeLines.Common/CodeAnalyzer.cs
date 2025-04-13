@@ -3,33 +3,105 @@
 namespace CodeLines.Common;
 public class CodeAnalyzer
 {
-    public async Task<AnalysisResult> AnalyzeAsync(List<FileInfo> files, bool verbose)
+    /// <summary>
+    /// Анализирует файлы с кодом и вычисляет общее количество строк
+    /// </summary>
+    /// <param name="files">Список файлов для анализа</param>
+    /// <param name="verbose">Подробный вывод информации</param>
+    /// <param name="previousResult">Предыдущий результат анализа (для оптимизации)</param>
+    /// <returns>Результат анализа</returns>
+    public async Task<AnalysisResult> AnalyzeAsync(List<FileInfo> files, bool verbose, AnalysisResult? previousResult = null)
     {
         var result = new AnalysisResult
         {
             Date = DateTime.Now,
             FileCount = files.Count,
             LineCount = 0,
-            FileStats = []
+            FileStats = [],
+            FileHashes = []
         };
+
+        var filesProcessed = 0;
+        var filesSkipped = 0;
 
         foreach (var file in files)
         {
-            int lineCount = await CountLinesOfCodeAsync(file);
+            string relativePath = GetRelativePath(file);
 
-            result.LineCount += lineCount;
+            bool needsProcessing = true;
+            string fileHash = string.Empty;
 
-            if (verbose)
+            if (previousResult != null &&
+                previousResult.FileHashes.TryGetValue(relativePath, out string? previousHash))
             {
-                result.FileStats.Add(new FileStats
+                fileHash = await FileHasher.CalculateFileHashAsync(file.FullName);
+
+                if (fileHash == previousHash)
                 {
-                    FilePath = GetRelativePath(file),
-                    LineCount = lineCount
-                });
+                    var previousStats = previousResult.FileStats.FirstOrDefault(s => s.FilePath == relativePath);
+                    if (previousStats != null)
+                    {
+                        result.LineCount += previousStats.LineCount;
+
+                        if (verbose)
+                        {
+                            result.FileStats.Add(new FileStats
+                            {
+                                FilePath = relativePath,
+                                LineCount = previousStats.LineCount,
+                                FileHash = fileHash
+                            });
+                        }
+
+                        result.FileHashes[relativePath] = fileHash;
+                        needsProcessing = false;
+                        filesSkipped++;
+                    }
+                }
+            }
+
+            if (needsProcessing)
+            {
+                int lineCount = await CountLinesOfCodeAsync(file);
+
+                result.LineCount += lineCount;
+
+                if (string.IsNullOrEmpty(fileHash))
+                {
+                    fileHash = await FileHasher.CalculateFileHashAsync(file.FullName);
+                }
+
+                if (verbose)
+                {
+                    result.FileStats.Add(new FileStats
+                    {
+                        FilePath = relativePath,
+                        LineCount = lineCount,
+                        FileHash = fileHash
+                    });
+                }
+
+                result.FileHashes[relativePath] = fileHash;
+                filesProcessed++;
+            }
+
+            if (files.Count > 100 && filesProcessed % 10 == 0)
+            {
+                Console.Write($"\rProcessed: {filesProcessed + filesSkipped}/{files.Count} files.");
             }
         }
+            if (files.Count > 100)
+            {
+                Console.WriteLine($"\rProcessed: {filesProcessed + filesSkipped}/{files.Count} files.");
+            }
 
-        return result;
+            if (filesSkipped > 0)
+            {
+                Console.WriteLine($"Skipped: {filesSkipped} unchanged files.");
+            }
+
+            return result;
+        
     }
 
     private async Task<int> CountLinesOfCodeAsync(FileInfo file)

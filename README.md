@@ -6,6 +6,11 @@ A CLI tool for counting lines of code in your projects, excluding empty lines an
 
 CodeLines is a console application for .NET developers that helps analyze projects and get statistics on code line count. The tool ignores empty lines and can be configured to exclude generated code or other files based on patterns.
 
+
+## Preview
+
+![example](example.gif)
+
 ## Installation
 
 ```bash

@@ -5,6 +5,7 @@ namespace CodeLines.Common.Models;
 /// </summary>
 public class AnalysisResult
 {
+    public int CacheVersion { get; set; }
     /// <summary>
     /// Дата и время анализа
     /// </summary>

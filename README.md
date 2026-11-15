@@ -114,3 +114,11 @@ CodeLines can help with quick project inventories, tracking codebase growth, or 
 ## License
 
 MIT.
+
+## Counting and ignore rules
+
+A line counts once when it contains non-whitespace text outside recognized comments. C-style comments and ordinary quoted strings are recognized for C#, JavaScript, TypeScript and CSS-family files; VB apostrophe comments and XML-style comments are also recognized. Other file types count non-empty lines. This is a lightweight heuristic, not a language parser: raw/interpolated strings, JavaScript template literals, nested comments and embedded languages may be counted incorrectly.
+
+`.clineIgnore` supports `*`, `?`, `**/` and directory patterns such as `bin/`. Matching is case-insensitive on Windows and case-sensitive on Linux. It is not a full `.gitignore` implementation; negation rules are not supported. The `.cline` state directory is excluded from scans. Old results are readable, but their cached counts are recalculated after the counting rules change.
+
+The projects target .NET 10. See [the JIT vs AOT notes](docs/JIT-VS-AOT.md) for publication and current experiment limitations.

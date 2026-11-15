@@ -1,181 +1,73 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
-
+using System.Text.Json.Serialization;
 using CodeLines.Common.Models;
 
 namespace CodeLines.Common;
+
+[JsonSerializable(typeof(AnalysisResult))]
+[JsonSerializable(typeof(List<HistoryEntry>))]
+internal partial class StateJsonContext : JsonSerializerContext;
+
 public class ProjectState
 {
-    private readonly string StateDirectory = ".cline";
-    private readonly string HistoryFile = "history.json";
-
-    /// <summary>
-    /// Save result
-    /// </summary>
     public async Task SaveResultsAsync(DirectoryInfo projectPath, AnalysisResult result)
     {
+        var dir = Path.Combine(projectPath.FullName, ".cline");
+        Directory.CreateDirectory(dir);
+        // Read first: a corrupt history must never be replaced with an empty one.
+        var history = await LoadHistoryAsync(projectPath, null);
+        history.Add(new HistoryEntry { Date = result.Date, LineCount = result.LineCount, FileCount = result.FileCount });
+        var name = $"scan_{DateTime.Now:yyyyMMdd_HHmmss_fffffff}_{Guid.NewGuid():N}.cline";
+        var resultPath = Path.Combine(dir, name);
+        var resultTemp = resultPath + ".tmp";
+        var historyPath = Path.Combine(dir, "history.json");
+        var historyTemp = Path.Combine(dir, $"history.{Guid.NewGuid():N}.tmp");
         try
         {
-            var stateDir = Path.Combine(projectPath.FullName, StateDirectory);
-            if (!Directory.Exists(stateDir))
-            {
-                Directory.CreateDirectory(stateDir);
-            }
-
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fffffff");
-            var resultFilePath = Path.Combine(stateDir, $"scan_{timestamp}_{Guid.NewGuid():N}.cline");
-
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-
-            var json = JsonSerializer.Serialize(result, options);
-
-            await CompressAndSaveAsync(json, resultFilePath);
-
-            await UpdateHistoryAsync(projectPath, result);
-
-            Console.WriteLine($"Results saved to {resultFilePath}");
+            await using (var file = new FileStream(resultTemp, FileMode.CreateNew))
+            await using (var gzip = new GZipStream(file, CompressionLevel.Optimal))
+                await JsonSerializer.SerializeAsync(gzip, result, StateJsonContext.Default.AnalysisResult);
+            await File.WriteAllTextAsync(historyTemp, JsonSerializer.Serialize(history, StateJsonContext.Default.ListHistoryEntry));
+            File.Move(resultTemp, resultPath);
+            File.Move(historyTemp, historyPath, true);
+            Console.WriteLine($"Results saved to {resultPath}");
         }
-        catch (Exception ex)
+        finally
         {
-            Console.WriteLine($"Error while saving results: {ex.Message}");
+            if (File.Exists(resultTemp)) File.Delete(resultTemp);
+            if (File.Exists(historyTemp)) File.Delete(historyTemp);
         }
     }
 
-
-    /// <summary>
-    /// Load previous result
-    /// </summary>
     public async Task<AnalysisResult?> LoadPreviousResultAsync(DirectoryInfo projectPath)
     {
-        try
+        var dir = Path.Combine(projectPath.FullName, ".cline");
+        if (!Directory.Exists(dir)) return null;
+        var path = Directory.GetFiles(dir, "*.cline").OrderByDescending(f => f, StringComparer.Ordinal).FirstOrDefault();
+        if (path is null) return null;
+        await using var file = File.OpenRead(path);
+        int first = file.ReadByte();
+        int second = file.ReadByte();
+        file.Position = 0;
+        if (first == 0x1f && second == 0x8b)
         {
-            string stateDir = Path.Combine(projectPath.FullName, StateDirectory);
-            if (!Directory.Exists(stateDir))
-            {
-                return null;
-            }
-
-            var resultFiles = Directory.GetFiles(stateDir, "*.cline")
-                .OrderByDescending(f => f)
-                .ToArray();
-
-            if (resultFiles.Length == 0)
-            {
-                return null; 
-            }
-
-            string previousResultFile = resultFiles[0];
-            string json = await LoadAndDecompressAsync(previousResultFile);
-
-            return JsonSerializer.Deserialize<AnalysisResult>(json);
+            await using var gzip = new GZipStream(file, CompressionMode.Decompress);
+            return await JsonSerializer.DeserializeAsync(gzip, StateJsonContext.Default.AnalysisResult)
+                ?? throw new InvalidDataException("Empty scan result.");
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading previous results: {ex.Message}");
-            return null;
-        }
+        return await JsonSerializer.DeserializeAsync(file, StateJsonContext.Default.AnalysisResult)
+            ?? throw new InvalidDataException("Empty scan result.");
     }
 
-    /// <summary>
-    /// Load scan history
-    /// </summary>
     public async Task<List<HistoryEntry>> LoadHistoryAsync(DirectoryInfo projectPath, int? last)
     {
-        try
-        {
-            string stateDir = Path.Combine(projectPath.FullName, StateDirectory);
-            string historyFilePath = Path.Combine(stateDir, HistoryFile);
-
-            if (!File.Exists(historyFilePath))
-            {
-                return [];
-            }
-
-            string json = await File.ReadAllTextAsync(historyFilePath);
-            var history = JsonSerializer.Deserialize<List<HistoryEntry>>(json) ?? [];
-
-            if (last.HasValue && last.Value > 0 && last.Value < history.Count)
-            {
-                return [.. history.Skip(history.Count - last.Value)];
-            }
-
-            return history;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading history: {ex.Message}");
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// Compress and save file
-    /// </summary>
-    private static async Task CompressAndSaveAsync(string content, string filePath)
-    {
-        byte[] contentBytes = Encoding.UTF8.GetBytes(content);
-
-        using var fs = new FileStream(filePath, FileMode.CreateNew);
-        using var gzs = new GZipStream(fs, CompressionLevel.Optimal);
-        await gzs.WriteAsync(contentBytes);
-    }
-
-    /// <summary>
-    /// Load and decompress file
-    /// </summary>
-    private static async Task<string> LoadAndDecompressAsync(string filePath)
-    {
-        using var fs = new FileStream(filePath, FileMode.Open);
-        using var gzs = new GZipStream(fs, CompressionMode.Decompress);
-        using var ms = new MemoryStream();
-        await gzs.CopyToAsync(ms);
-        return Encoding.UTF8.GetString(ms.ToArray());
-    }
-
-    /// <summary>
-    /// Updates scan history
-    /// </summary>
-    /// <param name="projectPath"></param>
-    /// <param name="result"></param>
-    /// <returns></returns>
-    private async Task UpdateHistoryAsync(DirectoryInfo projectPath, AnalysisResult result)
-    {
-        try
-        {
-            var stateDir = Path.Combine(projectPath.FullName, StateDirectory);
-            var historyFilePath = Path.Combine(stateDir, HistoryFile);
-
-            List<HistoryEntry> history = [];
-
-            if (File.Exists(historyFilePath))
-            {
-                var json = await File.ReadAllTextAsync(historyFilePath);
-                history = JsonSerializer.Deserialize<List<HistoryEntry>>(json) ?? [];
-            }
-
-            history.Add(new HistoryEntry
-            {
-                Date = result.Date,
-                LineCount = result.LineCount,
-                FileCount = result.FileCount
-            });
-
-            history = [.. history.OrderBy(h => h.Date)];
-
-            var updatedJson = JsonSerializer.Serialize(history, new JsonSerializerOptions
-            {
-                WriteIndented = true
-            });
-
-            await File.WriteAllTextAsync(historyFilePath, updatedJson);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error while updating results: {ex.Message}");
-        }
+        if (!projectPath.Exists) throw new DirectoryNotFoundException(projectPath.FullName);
+        var path = Path.Combine(projectPath.FullName, ".cline", "history.json");
+        if (!File.Exists(path)) return [];
+        var history = JsonSerializer.Deserialize(await File.ReadAllTextAsync(path), StateJsonContext.Default.ListHistoryEntry)
+            ?? throw new InvalidDataException("Empty scan history.");
+        return last is > 0 && last < history.Count ? history.TakeLast(last.Value).ToList() : history;
     }
 }

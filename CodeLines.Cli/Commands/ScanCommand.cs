@@ -9,8 +9,7 @@ public class ScanCommand
         string ignoreFilePath = Path.Combine(path.FullName, ".clineIgnore");
         if (!File.Exists(ignoreFilePath))
         {
-            Console.WriteLine(".clineIgnore not found. Execute 'init' command before scan.");
-            return;
+            throw new FileNotFoundException(".clineIgnore not found. Execute 'init' command before scan.");
         }
 
         var ignoreManager = new IgnoreManager();

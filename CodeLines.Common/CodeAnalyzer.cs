@@ -15,6 +15,7 @@ public class CodeAnalyzer
     {
         var result = new AnalysisResult
         {
+            CacheVersion = 2,
             Date = DateTime.Now,
             FileCount = files.Count,
             LineCount = 0,
@@ -32,7 +33,7 @@ public class CodeAnalyzer
             bool needsProcessing = true;
             string fileHash = string.Empty;
 
-            if (previousResult != null &&
+            if (previousResult != null && previousResult.CacheVersion == 2 && previousResult.FileStats != null && previousResult.FileHashes != null &&
                 previousResult.FileHashes.TryGetValue(relativePath, out string? previousHash))
             {
                 fileHash = await FileHasher.CalculateFileHashAsync(file.FullName);
@@ -99,103 +100,52 @@ public class CodeAnalyzer
         
     }
 
-    private async Task<int> CountLinesOfCodeAsync(FileInfo file)
+    private static async Task<int> CountLinesOfCodeAsync(FileInfo file)
     {
-        try
+        var extension = file.Extension.ToLowerInvariant();
+        bool cStyle = extension is ".cs" or ".js" or ".ts" or ".jsx" or ".tsx" or ".css" or ".scss" or ".less";
+        bool xmlStyle = extension is ".html" or ".xml" or ".xaml" or ".config" or ".csproj" or ".vbproj" or ".fsproj" or ".props" or ".targets";
+        bool vb = extension == ".vb";
+        bool inBlock = false;
+        char quote = '\0';
+        bool verbatim = false;
+        int count = 0;
+        foreach (var line in await File.ReadAllLinesAsync(file.FullName))
         {
-            string[] lines = await File.ReadAllLinesAsync(file.FullName);
-
-            int count = 0;
-            bool inMultilineComment = false;
-
-            foreach (var line in lines)
+            bool code = false;
+            for (int i = 0; i < line.Length; i++)
             {
-                string trimmedLine = line.Trim();
-
-                if (string.IsNullOrWhiteSpace(trimmedLine))
+                char c = line[i];
+                if (inBlock)
                 {
+                    string end = xmlStyle ? "-->" : "*/";
+                    if (line.AsSpan(i).StartsWith(end)) { inBlock = false; i += end.Length - 1; }
                     continue;
                 }
-
-                if (file.Extension.Equals(".cs", StringComparison.CurrentCultureIgnoreCase) ||
-                    file.Extension.Equals(".vb", StringComparison.CurrentCultureIgnoreCase) ||
-                    file.Extension.Equals(".js", StringComparison.CurrentCultureIgnoreCase) ||
-                    file.Extension.Equals(".ts", StringComparison.CurrentCultureIgnoreCase))
+                if (quote != '\0')
                 {
-                    if (trimmedLine.StartsWith("//") || trimmedLine.StartsWith('\''))
-                    {
-                        continue;
-                    }
-
-                    if (inMultilineComment)
-                    {
-                        if (trimmedLine.Contains("*/"))
-                        {
-                            inMultilineComment = false;
-                            
-                            string afterComment = trimmedLine[(trimmedLine.IndexOf("*/") + 2)..];
-
-                            if (!string.IsNullOrWhiteSpace(afterComment))
-                            {
-                                count++;
-                            }
-                        }
-                        continue;
-                    }
-
-                    if (trimmedLine.StartsWith("/*"))
-                    {
-                        inMultilineComment = true;
-                        if (trimmedLine.Contains("*/"))
-                        {
-                            inMultilineComment = false;
-                            
-                            string beforeComment = trimmedLine[..trimmedLine.IndexOf("/*")];
-                            string afterComment = trimmedLine[(trimmedLine.IndexOf("*/") + 2)..];
-                            if (!string.IsNullOrWhiteSpace(beforeComment) || !string.IsNullOrWhiteSpace(afterComment))
-                            {
-                                count++;
-                            }
-                        }
-                        continue;
-                    }
+                    code = true;
+                    if (verbatim && c == '"' && i + 1 < line.Length && line[i + 1] == '"') { i++; continue; }
+                    if (!verbatim && c == '\\' && i + 1 < line.Length) { i++; continue; }
+                    if (c == quote) { quote = '\0'; verbatim = false; }
+                    continue;
                 }
-                else if (file.Extension.Equals(".html", StringComparison.CurrentCultureIgnoreCase) ||
-                         file.Extension.Equals(".cshtml", StringComparison.CurrentCultureIgnoreCase) ||
-                         file.Extension.Equals(".xml", StringComparison.CurrentCultureIgnoreCase))
+                if (xmlStyle && line.AsSpan(i).StartsWith("<!--")) { inBlock = true; i += 3; continue; }
+                if (cStyle && line.AsSpan(i).StartsWith("//")) break;
+                if (cStyle && line.AsSpan(i).StartsWith("/*")) { inBlock = true; i++; continue; }
+                if (vb && c == '\'') break;
+                if ((cStyle || vb) && (c == '"' || (cStyle && c == '\'')))
                 {
-
-                    if (trimmedLine.StartsWith("<!--") && !trimmedLine.EndsWith("-->"))
-                    {
-                        inMultilineComment = true;
-                        continue;
-                    }
-
-                    if (inMultilineComment)
-                    {
-                        if (trimmedLine.Contains("-->"))
-                        {
-                            inMultilineComment = false;
-                        }
-                        continue;
-                    }
-
-                    if (trimmedLine.StartsWith("<!--") && trimmedLine.EndsWith("-->"))
-                    {
-                        continue;
-                    }
+                    quote = c;
+                    verbatim = c == '"' && ((vb) || (extension == ".cs" && i > 0 && line[i - 1] == '@'));
+                    code = true;
+                    continue;
                 }
-
-                count++;
+                if (!char.IsWhiteSpace(c)) code = true;
             }
-
-            return count;
+            if (code) count++;
+            if (!verbatim) quote = '\0';
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception during file analyzing {file.FullName}: {ex.Message}");
-            return 0;
-        }
+        return count;
     }
-
 }

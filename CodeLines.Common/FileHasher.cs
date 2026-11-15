@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 
 namespace CodeLines.Common;
 
@@ -14,19 +14,10 @@ public class FileHasher
     /// <returns>Строковое представление хэша</returns>
     public static async Task<string> CalculateFileHashAsync(string filePath)
     {
-        try
-        {
-            using var md5 = MD5.Create();
-            using var stream = File.OpenRead(filePath);
-            byte[] hashBytes = await md5.ComputeHashAsync(stream);
-
-            return Convert.ToHexStringLower(hashBytes);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error hashing file {filePath}: {ex.Message}");
-            return string.Empty;
-        }
+        using var md5 = MD5.Create();
+        using var stream = File.OpenRead(filePath);
+        byte[] hashBytes = await md5.ComputeHashAsync(stream);
+        return Convert.ToHexStringLower(hashBytes);
     }
 
     /// <summary>

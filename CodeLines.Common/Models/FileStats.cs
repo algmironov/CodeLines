@@ -1,4 +1,4 @@
-﻿namespace CodeLines.Common.Models;
+namespace CodeLines.Common.Models;
 
 /// <summary>
 /// Класс, представляющий статистику по отдельному файлу
@@ -8,7 +8,7 @@ public class FileStats
     /// <summary>
     /// Относительный путь к файлу
     /// </summary>
-    public string FilePath { get; set; }
+    public string FilePath { get; set; } = string.Empty;
 
     /// <summary>
     /// Количество строк кода в файле (без пустых строк и комментариев)
@@ -18,5 +18,5 @@ public class FileStats
     /// <summary>
     /// Хэш-сумма файла для определения изменений
     /// </summary>
-    public string FileHash { get; set; }
+    public string FileHash { get; set; } = string.Empty;
 }

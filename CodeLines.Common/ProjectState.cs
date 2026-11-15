@@ -1,4 +1,4 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 
@@ -23,8 +23,8 @@ public class ProjectState
                 Directory.CreateDirectory(stateDir);
             }
 
-            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            var resultFilePath = Path.Combine(stateDir, $"scan_{timestamp}.cline");
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss_fffffff");
+            var resultFilePath = Path.Combine(stateDir, $"scan_{timestamp}_{Guid.NewGuid():N}.cline");
 
             var options = new JsonSerializerOptions
             {
@@ -119,7 +119,7 @@ public class ProjectState
     {
         byte[] contentBytes = Encoding.UTF8.GetBytes(content);
 
-        using var fs = new FileStream(filePath, FileMode.Create);
+        using var fs = new FileStream(filePath, FileMode.CreateNew);
         using var gzs = new GZipStream(fs, CompressionLevel.Optimal);
         await gzs.WriteAsync(contentBytes);
     }

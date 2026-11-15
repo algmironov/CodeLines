@@ -1,4 +1,4 @@
-﻿namespace CodeLines.Common;
+namespace CodeLines.Common;
 public class FileScanner(IgnoreManager ignoreManager)
 {
     private readonly IgnoreManager _ignoreManager = ignoreManager;
@@ -27,7 +27,8 @@ public class FileScanner(IgnoreManager ignoreManager)
 
     private async Task ScanDirectoryAsync(DirectoryInfo directory, List<FileInfo> result)
     {
-        if (_ignoreManager.ShouldIgnore(directory.FullName))
+        if (directory.Name.Equals(".cline", StringComparison.OrdinalIgnoreCase) ||
+            _ignoreManager.ShouldIgnore(directory.FullName))
         {
             return;
         }

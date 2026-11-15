@@ -1,4 +1,4 @@
-﻿using CodeLines.Common;
+using CodeLines.Common;
 
 namespace CodeLines.Cli.Commands;
 
@@ -25,7 +25,7 @@ public class ScanCommand
         var previousResult = await projectState.LoadPreviousResultAsync(path);
 
         var analyzer = new CodeAnalyzer();
-        var result = await analyzer.AnalyzeAsync(projectFiles, verbose, previousResult);
+        var result = await analyzer.AnalyzeAsync(projectFiles, verbose, previousResult, path.FullName);
 
         if (verbose)
         {

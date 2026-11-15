@@ -1,4 +1,4 @@
-﻿using CodeLines.Common.Models;
+using CodeLines.Common.Models;
 
 namespace CodeLines.Common;
 public class CodeAnalyzer
@@ -9,8 +9,9 @@ public class CodeAnalyzer
     /// <param name="files">Список файлов для анализа</param>
     /// <param name="verbose">Подробный вывод информации</param>
     /// <param name="previousResult">Предыдущий результат анализа (для оптимизации)</param>
+    /// <param name="projectRoot">Корень сканируемого проекта для относительных путей</param>
     /// <returns>Результат анализа</returns>
-    public async Task<AnalysisResult> AnalyzeAsync(List<FileInfo> files, bool verbose, AnalysisResult? previousResult = null)
+    public async Task<AnalysisResult> AnalyzeAsync(List<FileInfo> files, bool verbose, AnalysisResult? previousResult = null, string? projectRoot = null)
     {
         var result = new AnalysisResult
         {
@@ -26,7 +27,7 @@ public class CodeAnalyzer
 
         foreach (var file in files)
         {
-            string relativePath = GetRelativePath(file);
+            string relativePath = Path.GetRelativePath(projectRoot ?? Directory.GetCurrentDirectory(), file.FullName);
 
             bool needsProcessing = true;
             string fileHash = string.Empty;
@@ -43,15 +44,12 @@ public class CodeAnalyzer
                     {
                         result.LineCount += previousStats.LineCount;
 
-                        if (verbose)
+                        result.FileStats.Add(new FileStats
                         {
-                            result.FileStats.Add(new FileStats
-                            {
-                                FilePath = relativePath,
-                                LineCount = previousStats.LineCount,
-                                FileHash = fileHash
-                            });
-                        }
+                            FilePath = relativePath,
+                            LineCount = previousStats.LineCount,
+                            FileHash = fileHash
+                        });
 
                         result.FileHashes[relativePath] = fileHash;
                         needsProcessing = false;
@@ -71,15 +69,12 @@ public class CodeAnalyzer
                     fileHash = await FileHasher.CalculateFileHashAsync(file.FullName);
                 }
 
-                if (verbose)
+                result.FileStats.Add(new FileStats
                 {
-                    result.FileStats.Add(new FileStats
-                    {
-                        FilePath = relativePath,
-                        LineCount = lineCount,
-                        FileHash = fileHash
-                    });
-                }
+                    FilePath = relativePath,
+                    LineCount = lineCount,
+                    FileHash = fileHash
+                });
 
                 result.FileHashes[relativePath] = fileHash;
                 filesProcessed++;
@@ -203,8 +198,4 @@ public class CodeAnalyzer
         }
     }
 
-    private static string GetRelativePath(FileInfo file)
-    {
-        return file.FullName.Replace(Directory.GetCurrentDirectory(), "").TrimStart('\\', '/');
-    }
 }

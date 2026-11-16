@@ -1,10 +1,11 @@
-﻿namespace CodeLines.Common.Models;
+namespace CodeLines.Common.Models;
 
 /// <summary>
 /// Класс, представляющий результат анализа кода
 /// </summary>
 public class AnalysisResult
 {
+    public int CacheVersion { get; set; }
     /// <summary>
     /// Дата и время анализа
     /// </summary>
@@ -21,7 +22,7 @@ public class AnalysisResult
     public int LineCount { get; set; }
 
     /// <summary>
-    /// Статистика по отдельным файлам (заполняется только при verbose=true)
+    /// Статистика по отдельным файлам для вывода и повторного использования
     /// </summary>
     public List<FileStats> FileStats { get; set; } = [];
 

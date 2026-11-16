@@ -1,4 +1,4 @@
-﻿namespace CodeLines.Common;
+namespace CodeLines.Common;
 public class FileScanner(IgnoreManager ignoreManager)
 {
     private readonly IgnoreManager _ignoreManager = ignoreManager;
@@ -7,27 +7,16 @@ public class FileScanner(IgnoreManager ignoreManager)
     {
         var result = new List<FileInfo>();
 
-        try
-        {
-            if (!projectPath.Exists)
-            {
-                throw new DirectoryNotFoundException($"Directory not found: {projectPath.FullName}");
-            }
-
-            await ScanDirectoryAsync(projectPath, result);
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Exception during directory scan: {ex.Message}");
-            return [];
-        }
+        if (!projectPath.Exists)
+            throw new DirectoryNotFoundException($"Directory not found: {projectPath.FullName}");
+        await ScanDirectoryAsync(projectPath, result, isRoot: true);
+        return result;
     }
 
-    private async Task ScanDirectoryAsync(DirectoryInfo directory, List<FileInfo> result)
+    private async Task ScanDirectoryAsync(DirectoryInfo directory, List<FileInfo> result, bool isRoot = false)
     {
-        if (_ignoreManager.ShouldIgnore(directory.FullName))
+        if ((!isRoot && directory.Name.Equals(".cline", StringComparison.OrdinalIgnoreCase)) ||
+            _ignoreManager.ShouldIgnore(directory.FullName))
         {
             return;
         }

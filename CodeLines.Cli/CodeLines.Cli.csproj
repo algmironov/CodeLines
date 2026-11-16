@@ -7,7 +7,7 @@
     <Nullable>enable</Nullable>
     <PublishAot>false</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <Title>CodeLines</Title>
     <Authors>algmironov</Authors>
     <Product>CodeLines</Product>
@@ -20,7 +20,7 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
     <PackageId>CodeLines</PackageId>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <RepositoryUrl>https://github.com/algmironov/CodeLines</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageTags>c#;dotnet;.net;cli</PackageTags>

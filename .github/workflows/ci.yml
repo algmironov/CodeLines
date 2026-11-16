@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  managed:
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore CodeLines.sln
+      - run: dotnet build CodeLines.sln -c Release --no-restore
+      - run: dotnet test CodeLines.sln -c Release --no-build --no-restore
+  aot:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet publish CodeLines.Cli/CodeLines.Cli.csproj -c Release -r win-x64 -p:PublishAot=true -p:GeneratePackageOnBuild=false -o aot-output
+      - run: ./aot-output/CodeLines.Cli.exe --help

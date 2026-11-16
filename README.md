@@ -122,3 +122,5 @@ A line counts once when it contains non-whitespace text outside recognized comme
 `.clineIgnore` supports `*`, `?`, `**/` and directory patterns such as `bin/`. Matching is case-insensitive on Windows and case-sensitive on Linux. It is not a full `.gitignore` implementation; negation rules are not supported. The `.cline` state directory is excluded from scans. Old results are readable, but their cached counts are recalculated after the counting rules change.
 
 The projects target .NET 10. See [the JIT vs AOT notes](docs/JIT-VS-AOT.md) for publication and current experiment limitations.
+
+The 1.1.0 candidate requires the .NET 10 runtime for installation as a .NET tool. Review [release notes](docs/RELEASE-NOTES-1.1.0.md) and the [release checklist](docs/RELEASE-CHECKLIST.md) before release.

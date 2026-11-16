@@ -1,4 +1,5 @@
 namespace CodeLines.Common;
+
 public class FileScanner(IgnoreManager ignoreManager)
 {
     private readonly IgnoreManager _ignoreManager = ignoreManager;

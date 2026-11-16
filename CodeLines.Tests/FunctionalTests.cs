@@ -45,7 +45,8 @@ public sealed class FunctionalTests : IDisposable
     public async Task HistoryAndOldResultRemainReadableAndCorruptionIsNotOverwritten()
     {
         var state = new ProjectState();
-        var dir = Path.Combine(root, ".cline"); Directory.CreateDirectory(dir);
+        var dir = Path.Combine(root, ".cline");
+        Directory.CreateDirectory(dir);
         var history = Path.Combine(dir, "history.json");
         await File.WriteAllTextAsync(history, "[{\"Date\":\"2025-01-01T00:00:00\",\"FileCount\":1,\"LineCount\":2}]");
         Assert.Equal(2, Assert.Single(await state.LoadHistoryAsync(DirectoryInfo, null)).LineCount);

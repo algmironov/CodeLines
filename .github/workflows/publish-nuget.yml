@@ -1,0 +1,151 @@
+name: Publish NuGet
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions: {}
+concurrency:
+  group: nuget-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      sha256: ${{ steps.package.outputs.sha256 }}
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - name: Validate tag, version, ancestry and NuGet availability
+        id: validate
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$(git rev-parse "${EVENT_SHA}^{commit}")" refs/remotes/origin/master
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "${EVENT_SHA}^{commit}")"
+          python3 - <<'PY'
+          import json, os, re, sys, urllib.error, urllib.request, xml.etree.ElementTree as ET
+          tag = os.environ['TAG_NAME']
+          # NuGet drops build metadata during normalization; reject it to avoid ambiguous identities.
+          match = re.fullmatch(r'v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?', tag, re.ASCII)
+          if not match:
+              sys.exit('Invalid release tag; expected vMAJOR.MINOR.PATCH with optional SemVer prerelease and no build metadata.')
+          version = tag[1:]
+          root = ET.parse('CodeLines.Cli/CodeLines.Cli.csproj').getroot()
+          versions = [e.text for e in root.iter('Version')]
+          if versions != [version]:
+              sys.exit('Tag does not match the project Version.')
+          url = 'https://api.nuget.org/v3-flatcontainer/codelines/index.json'
+          try:
+              with urllib.request.urlopen(url, timeout=30) as response:
+                  published = json.load(response)['versions']
+          except urllib.error.HTTPError as exc:
+              if exc.code == 404:
+                  published = []
+              else:
+                  raise
+          if any(item.lower() == version.lower() for item in published):
+              sys.exit('This package version already exists on NuGet.org.')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'version={version}\n')
+          PY
+      - name: Restore, build and test
+        run: |
+          set -euo pipefail
+          dotnet restore CodeLines.sln
+          dotnet build CodeLines.sln -c Release --no-restore
+          dotnet test CodeLines.sln -c Release --no-build --no-restore
+      - name: Pack and inspect
+        id: package
+        env:
+          PACKAGE_VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          dotnet pack CodeLines.Cli/CodeLines.Cli.csproj -c Release --no-build --no-restore -o "$RUNNER_TEMP/nuget-package"
+          python3 - <<'PY'
+          import glob, hashlib, os, sys, zipfile, xml.etree.ElementTree as ET
+          packages = glob.glob(os.path.join(os.environ['RUNNER_TEMP'], 'nuget-package', '*.nupkg'))
+          if len(packages) != 1:
+              sys.exit('Expected exactly one package.')
+          path = packages[0]
+          with zipfile.ZipFile(path) as package:
+              names = package.namelist()
+              nuspecs = [n for n in names if n.endswith('.nuspec') and '/' not in n]
+              if len(nuspecs) != 1 or package.testzip() is not None:
+                  sys.exit('Invalid package archive or nuspec.')
+              metadata = ET.fromstring(package.read(nuspecs[0])).find('{*}metadata')
+              def value(name):
+                  node = metadata.find('{*}' + name)
+                  return node.text if node is not None else None
+              if value('id') != 'CodeLines' or value('version') != os.environ['PACKAGE_VERSION'] or value('license') != 'MIT' or value('readme') != 'README.md':
+                  sys.exit('Package metadata does not match the expected release.')
+              required = {'README.md', 'tools/net10.0/any/DotnetToolSettings.xml', 'tools/net10.0/any/CodeLines.Cli.dll', 'tools/net10.0/any/CodeLines.Common.dll', 'tools/net10.0/any/System.CommandLine.dll'}
+              if not required.issubset(names):
+                  sys.exit('Package is missing required tool files.')
+              settings = ET.fromstring(package.read('tools/net10.0/any/DotnetToolSettings.xml'))
+              commands = [e.attrib.get('Name') for e in settings.iter() if e.tag.rsplit('}', 1)[-1] == 'Command']
+              if commands != ['cline']:
+                  sys.exit('Unexpected tool command.')
+          with open(path, 'rb') as stream:
+              digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'sha256={digest}\n')
+          PY
+      - name: Upload verified package
+        id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nuget-package
+          path: ${{ runner.temp }}/nuget-package/*.nupkg
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: nuget-release
+    permissions:
+      id-token: write
+    steps:
+      - name: Download verified package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          artifact-ids: ${{ needs.verify.outputs.artifact-id }}
+          path: package
+      - name: Verify artifact digest
+        env:
+          EXPECTED_SHA256: ${{ needs.verify.outputs.sha256 }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(package/*.nupkg)
+          test "${#files[@]}" -eq 1
+          printf '%s  %s\n' "$EXPECTED_SHA256" "${files[0]}" | sha256sum --check --status
+      - name: Obtain temporary NuGet credential
+        id: login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: algmironov
+      - name: Publish package
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(package/*.nupkg)
+          test "${#files[@]}" -eq 1
+          test -n "$NUGET_API_KEY"
+          dotnet nuget push "${files[0]}" --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json

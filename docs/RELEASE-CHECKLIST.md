@@ -6,4 +6,5 @@
 - [ ] Review AOT and trimming warnings, and verify old plain JSON and gzip results.
 - [ ] Pack `CodeLines.Cli/CodeLines.Cli.csproj`, inspect metadata and locally install from a local source; run `cline --help`.
 - [ ] Review release notes, CI results, licenses, and the working tree.
-- [ ] Perform any commit, tag, upload and release manually after review; these actions are not automated here.
+- [ ] Configure and review NuGet Trusted Publishing, GitHub environment, and tag protections as described in [NuGet publishing](NUGET-PUBLISHING.md).
+- [ ] After review, the owner commits changes and creates and pushes a release tag. The tag triggers package publication; verify its workflow and NuGet result.

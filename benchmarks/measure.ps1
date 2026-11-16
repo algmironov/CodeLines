@@ -5,9 +5,12 @@ param(
     [int]$Warmups = 2,
     [int]$Iterations = 10,
     [int]$Series = 1,
-    [ValidateSet('Rotating','Grouped')][string]$Order = 'Rotating'
+    [ValidateSet('Rotating','Grouped')][string]$Order = 'Rotating',
+    [switch]$KeepWorkspaces,
+    [switch]$Quick
 )
 $ErrorActionPreference = 'Stop'
+if ($Quick) { $Warmups = 0; $Iterations = 1; $Series = 1 }
 if ($Warmups -lt 0 -or $Iterations -lt 1 -or $Series -lt 1) { throw 'Invalid run counts.' }
 if (Test-Path -LiteralPath $OutputDirectory) { throw 'Choose a new output directory.' }
 $variants = @('JIT-FDD','JIT-SCD','NativeAOT')
@@ -40,15 +43,47 @@ $records = [Collections.Generic.List[object]]::new()
 $scenarios = @('help','small-first','medium-first','repeat','modified')
 if ($fixtureSizes -contains 'large') { $scenarios += 'large-first' }
 $sequence = 0
+$diagnosticOutput = ""
+$currentRun = ""
+$totalRuns = $scenarios.Count * $variants.Count * ($Warmups + $Iterations) * $Series
+$workspaceRoot = Join-Path ([IO.Path]::GetFullPath($OutputDirectory)) 'workspaces'
+New-Item -ItemType Directory -Path $workspaceRoot | Out-Null
+$workspaces = @{}
+$createdFiles = 0
+$deletedFiles = 0
+$statusPath = Join-Path $OutputDirectory 'status.json'
+@{ status='running'; completed=0; total=$totalRuns } | ConvertTo-Json | Set-Content -Encoding utf8 $statusPath
+function Remove-OwnedDirectory([string]$path) {
+    $root = [IO.Path]::GetFullPath($workspaceRoot).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    $resolved = [IO.Path]::GetFullPath($path)
+    if (!$resolved.StartsWith($root, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe workspace path: $resolved" }
+    if (Test-Path -LiteralPath $resolved) {
+        $script:deletedFiles += @(Get-ChildItem -LiteralPath $resolved -File -Recurse -Force).Count
+        Remove-Item -LiteralPath $resolved -Recurse -Force
+    }
+}
 function Run-One($variant, $scenario, $seriesIndex, $iteration) {
     $script:sequence++
     $exe = (Resolve-Path (Join-Path $PublishRoot "$variant\CodeLines.Cli.exe")).Path
     $size = if ($scenario -eq 'medium-first') { 'medium' } elseif ($scenario -eq 'large-first') { 'large' } else { 'small' }
-    $work = Join-Path $OutputDirectory ("work-{0:D7}" -f $script:sequence)
-    Copy-Item -LiteralPath (Join-Path $FixtureRoot $size) -Destination $work -Recurse
+    $script:currentRun = "scenario=$scenario variant=$variant series=$seriesIndex iteration=$iteration"
+    Write-Host "[$script:sequence/$totalRuns] scenario=$scenario variant=$variant series=$seriesIndex iteration=$iteration"
+    $work = $null
+    if ($scenario -ne 'help') {
+        $key = "$variant-$size"
+        if (!$workspaces.ContainsKey($key)) {
+            $work = Join-Path $workspaceRoot $key
+            Copy-Item -LiteralPath (Join-Path $FixtureRoot $size) -Destination $work -Recurse
+            $script:createdFiles += @(Get-ChildItem -LiteralPath $work -File -Recurse -Force).Count
+            $workspaces[$key] = $work
+        } else { $work = $workspaces[$key] }
+        Remove-OwnedDirectory (Join-Path $work '.cline')
+        Copy-Item -LiteralPath (Join-Path $FixtureRoot "$size/File00000.cs") -Destination (Join-Path $work 'File00000.cs') -Force
+    }
     $expected = $manifest.sets | Where-Object name -eq $size | Select-Object -First 1
     if ($scenario -in @('repeat','modified')) {
         $prepared = & $exe scan --path $work
+        $script:diagnosticOutput = "$prepared"
         if ($LASTEXITCODE -ne 0 -or "$prepared" -notmatch "Files total: $($expected.files)(\s|$)" -or "$prepared" -notmatch "Lines of code total .*: $($expected.expectedLines)(\s|$)") { throw "Preparation failed: $variant $scenario" }
     }
     if ($scenario -eq 'modified') { Add-Content -LiteralPath (Join-Path $work 'File00000.cs') -Value '// changed' }
@@ -56,6 +91,7 @@ function Run-One($variant, $scenario, $seriesIndex, $iteration) {
     if ($scenario -eq 'help') { $output = & $exe --help } else { $output = & $exe scan --path $work }
     $code = $LASTEXITCODE
     $watch.Stop()
+    $script:diagnosticOutput = "$output"
     if ($code -ne 0) { throw "Run failed: $variant $scenario, exit $code" }
     if ($scenario -eq 'help' -and "$output" -notmatch 'scan') { throw "Help missing scan command: $variant" }
     if ($scenario -ne 'help') {
@@ -64,8 +100,13 @@ function Run-One($variant, $scenario, $seriesIndex, $iteration) {
         if ($skip -gt 0 -and "$output" -notmatch "Skipped: $skip unchanged files") { throw "Unexpected cache use: $variant $scenario" }
     }
     $summary = @($output | Where-Object { $_ -match '^(Files total|Lines of code total)' }) -join '; '
-    $records.Add([pscustomobject]@{ sequence=$script:sequence; variant=$variant; scenario=$scenario; series=$seriesIndex; iteration=$iteration; warmup=($iteration -lt 0); elapsedMs=$watch.Elapsed.TotalMilliseconds; summary=$summary; peakMemoryBytes=$null })
+    $record = [pscustomobject]@{ sequence=$script:sequence; variant=$variant; scenario=$scenario; series=$seriesIndex; iteration=$iteration; warmup=($iteration -lt 0); elapsedMs=$watch.Elapsed.TotalMilliseconds; summary=$summary; peakMemoryBytes=$null }
+    $records.Add($record)
+    $record | ConvertTo-Json -Compress | Add-Content -Encoding utf8 (Join-Path $OutputDirectory 'runs.jsonl')
+    $record | Export-Csv -NoTypeInformation -Encoding utf8 -Append (Join-Path $OutputDirectory 'runs.partial.csv')
+    @{ status='running'; completed=$script:sequence; total=$totalRuns } | ConvertTo-Json | Set-Content -Encoding utf8 $statusPath
 }
+try {
 foreach ($seriesIndex in 1..$Series) {
     foreach ($scenario in $scenarios) {
         if ($Order -eq 'Grouped') {
@@ -95,4 +136,13 @@ $executables = foreach ($variant in $variants) { $path = (Resolve-Path (Join-Pat
 $metadata = [ordered]@{ executables=@($executables); fixtureManifest=$manifest; fixtureStats=$manifest.sets; gitStatus=@($gitStatus); os=[Runtime.InteropServices.RuntimeInformation]::OSDescription; architecture=[Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString(); sdk=(& dotnet --version); runtimes=(& dotnet --list-runtimes); rid='win-x64'; configuration='Release'; gitSha=$gitSha; publishOptions='FDD/SCD/AOT; ReadyToRun=false; PublishSingleFile=false'; fixtureRoot=(Resolve-Path $FixtureRoot).Path; warmups=$Warmups; iterations=$Iterations; series=$Series; order=$Order; note='Elapsed process invocation; OS cache is not controlled. Peak memory not measured.' }
 [pscustomobject]@{ metadata=$metadata; runs=$records; aggregates=$aggregates } | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 (Join-Path $OutputDirectory 'results.json')
 $records | Export-Csv -NoTypeInformation -Encoding utf8 (Join-Path $OutputDirectory 'results.csv')
-Write-Host "Raw results written to $OutputDirectory; fixture copies are retained for inspection."
+if (!$KeepWorkspaces) {
+    foreach ($work in $workspaces.Values) { Remove-OwnedDirectory $work }
+    Remove-Item -LiteralPath $workspaceRoot -Force
+}
+@{ status='complete'; completed=$sequence; total=$totalRuns; copiedFiles=$createdFiles; deletedFiles=$deletedFiles; workspacesRetained=[bool]$KeepWorkspaces } | ConvertTo-Json | Set-Content -Encoding utf8 $statusPath
+Write-Host "Completed $sequence runs; copied files: $createdFiles; removed files: $deletedFiles."
+} catch {
+    @{ status='failed'; completed=$records.Count; total=$totalRuns; error=$_.Exception.ToString(); currentRun=$currentRun; output=$diagnosticOutput; copiedFiles=$createdFiles; deletedFiles=$deletedFiles; workspaces=$workspaceRoot } | ConvertTo-Json | Set-Content -Encoding utf8 $statusPath
+    throw
+}

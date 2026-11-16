@@ -107,11 +107,13 @@ public class IgnoreManager
     public bool ShouldIgnore(string path)
     {
         var relative = Path.GetRelativePath(_root, path).Replace('\\', '/');
-        if (relative == ".") return false;
+        if (relative == ".")
+            return false;
         foreach (var raw in _ignorePatterns)
         {
             var pattern = raw.Trim().Replace('\\', '/').TrimStart('/');
-            if (pattern.Length == 0 || pattern.StartsWith('#') || pattern.StartsWith('!')) continue;
+            if (pattern.Length == 0 || pattern.StartsWith('#') || pattern.StartsWith('!'))
+                continue;
             bool directory = pattern.EndsWith('/');
             pattern = pattern.TrimEnd('/');
             var regex = new System.Text.StringBuilder();
@@ -121,18 +123,27 @@ public class IgnoreManager
                 if (c == '*' && i + 1 < pattern.Length && pattern[i + 1] == '*')
                 {
                     i++;
-                    if (i + 1 < pattern.Length && pattern[i + 1] == '/') { i++; regex.Append("(?:.*/)?"); }
-                    else regex.Append(".*");
+                    if (i + 1 < pattern.Length && pattern[i + 1] == '/')
+                    {
+                        i++;
+                        regex.Append("(?:.*/)?");
+                    }
+                    else
+                        regex.Append(".*");
                 }
-                else if (c == '*') regex.Append("[^/]*");
-                else if (c == '?') regex.Append("[^/]");
-                else regex.Append(Regex.Escape(c.ToString()));
+                else if (c == '*')
+                    regex.Append("[^/]*");
+                else if (c == '?')
+                    regex.Append("[^/]");
+                else
+                    regex.Append(Regex.Escape(c.ToString()));
             }
             // Legacy rules with a leading slash matched directory names at any depth.
             var prefix = pattern.Contains('/') ? "^" : "(?:^|.*/)";
             var suffix = directory ? "(?:/.*)?$" : "$";
             var options = OperatingSystem.IsWindows() ? RegexOptions.IgnoreCase | RegexOptions.CultureInvariant : RegexOptions.CultureInvariant;
-            if (Regex.IsMatch(relative, prefix + regex + suffix, options)) return true;
+            if (Regex.IsMatch(relative, prefix + regex + suffix, options))
+                return true;
         }
         return false;
     }

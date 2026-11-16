@@ -50,7 +50,8 @@ public sealed class RegressionTests : IDisposable
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             await File.WriteAllTextAsync(path, "class C {}\n");
         }
-        var ignore = new IgnoreManager(); await ignore.LoadIgnoreRulesAsync(new DirectoryInfo(root));
+        var ignore = new IgnoreManager();
+        await ignore.LoadIgnoreRulesAsync(new DirectoryInfo(root));
         var files = await new FileScanner(ignore).ScanProjectAsync(new DirectoryInfo(root));
         Assert.Equal("keep.cs", Assert.Single(files).Name);
     }
@@ -59,14 +60,16 @@ public sealed class RegressionTests : IDisposable
     public async Task CaseSensitivityFollowsPlatform()
     {
         await File.WriteAllTextAsync(Path.Combine(root, ".clineIgnore"), "*.min.js\n");
-        var ignore = new IgnoreManager(); await ignore.LoadIgnoreRulesAsync(new DirectoryInfo(root));
+        var ignore = new IgnoreManager();
+        await ignore.LoadIgnoreRulesAsync(new DirectoryInfo(root));
         Assert.Equal(OperatingSystem.IsWindows(), ignore.ShouldIgnore(Path.Combine(root, "A.MIN.JS")));
     }
 
     [Fact]
     public async Task CacheHandlesAddRemoveAndOldMissingStats()
     {
-        var a = Path.Combine(root, "a.cs"); var b = Path.Combine(root, "b.cs");
+        var a = Path.Combine(root, "a.cs");
+        var b = Path.Combine(root, "b.cs");
         await File.WriteAllTextAsync(a, "class A {}\n");
         var analyzer = new CodeAnalyzer();
         var first = await analyzer.AnalyzeAsync([new FileInfo(a)], false, projectRoot: root);
@@ -74,17 +77,21 @@ public sealed class RegressionTests : IDisposable
         Assert.Equal(1, (await analyzer.AnalyzeAsync([new FileInfo(a)], true, old, root)).LineCount);
         await File.WriteAllTextAsync(b, "class B {}\nclass C {}\n");
         var added = await analyzer.AnalyzeAsync([new FileInfo(a), new FileInfo(b)], true, first, root);
-        Assert.Equal(3, added.LineCount); Assert.Equal(2, added.FileStats.Count);
+        Assert.Equal(3, added.LineCount);
+        Assert.Equal(2, added.FileStats.Count);
         var removed = await analyzer.AnalyzeAsync([new FileInfo(b)], false, added, root);
-        Assert.Equal(2, removed.LineCount); Assert.Single(removed.FileStats);
+        Assert.Equal(2, removed.LineCount);
+        Assert.Single(removed.FileStats);
     }
 
     [Fact]
     public async Task ResultsAreDistinctAndCorruptResultsFail()
     {
-        var state = new ProjectState(); var project = new DirectoryInfo(root);
+        var state = new ProjectState();
+        var project = new DirectoryInfo(root);
         var result = new AnalysisResult { Date = DateTime.Now, FileCount = 1, LineCount = 1 };
-        await state.SaveResultsAsync(project, result); await state.SaveResultsAsync(project, result);
+        await state.SaveResultsAsync(project, result);
+        await state.SaveResultsAsync(project, result);
         Assert.Equal(2, Directory.GetFiles(Path.Combine(root, ".cline"), "*.cline").Length);
         Assert.Equal(2, (await state.LoadHistoryAsync(project, null)).Count);
         var corrupt = Path.Combine(root, ".cline", "scan_99999999_999999.cline");

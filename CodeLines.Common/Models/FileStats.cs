@@ -13,7 +13,10 @@ public class FileStats
     /// <summary>
     /// Количество строк кода в файле (без пустых строк и комментариев)
     /// </summary>
-    public int LineCount { get; set; }
+    public int LineCount
+    {
+        get; set;
+    }
 
     /// <summary>
     /// Хэш-сумма файла для определения изменений

@@ -1,6 +1,7 @@
 using CodeLines.Common.Models;
 
 namespace CodeLines.Common;
+
 public class CodeAnalyzer
 {
     /// <summary>
@@ -86,18 +87,17 @@ public class CodeAnalyzer
                 Console.Write($"\rProcessed: {filesProcessed + filesSkipped}/{files.Count} files.");
             }
         }
-            if (files.Count > 100)
-            {
-                Console.WriteLine($"\rProcessed: {filesProcessed + filesSkipped}/{files.Count} files.");
-            }
+        if (files.Count > 100)
+        {
+            Console.WriteLine($"\rProcessed: {filesProcessed + filesSkipped}/{files.Count} files.");
+        }
 
-            if (filesSkipped > 0)
-            {
-                Console.WriteLine($"Skipped: {filesSkipped} unchanged files.");
-            }
+        if (filesSkipped > 0)
+        {
+            Console.WriteLine($"Skipped: {filesSkipped} unchanged files.");
+        }
 
-            return result;
-        
+        return result;
     }
 
     private static async Task<int> CountLinesOfCodeAsync(FileInfo file)
@@ -119,21 +119,49 @@ public class CodeAnalyzer
                 if (inBlock)
                 {
                     string end = xmlStyle ? "-->" : "*/";
-                    if (line.AsSpan(i).StartsWith(end)) { inBlock = false; i += end.Length - 1; }
+                    if (line.AsSpan(i).StartsWith(end))
+                    {
+                        inBlock = false;
+                        i += end.Length - 1;
+                    }
                     continue;
                 }
                 if (quote != '\0')
                 {
                     code = true;
-                    if (verbatim && c == '"' && i + 1 < line.Length && line[i + 1] == '"') { i++; continue; }
-                    if (!verbatim && c == '\\' && i + 1 < line.Length) { i++; continue; }
-                    if (c == quote) { quote = '\0'; verbatim = false; }
+                    if (verbatim && c == '"' && i + 1 < line.Length && line[i + 1] == '"')
+                    {
+                        i++;
+                        continue;
+                    }
+                    if (!verbatim && c == '\\' && i + 1 < line.Length)
+                    {
+                        i++;
+                        continue;
+                    }
+                    if (c == quote)
+                    {
+                        quote = '\0';
+                        verbatim = false;
+                    }
                     continue;
                 }
-                if (xmlStyle && line.AsSpan(i).StartsWith("<!--")) { inBlock = true; i += 3; continue; }
-                if (cStyle && line.AsSpan(i).StartsWith("//")) break;
-                if (cStyle && line.AsSpan(i).StartsWith("/*")) { inBlock = true; i++; continue; }
-                if (vb && c == '\'') break;
+                if (xmlStyle && line.AsSpan(i).StartsWith("<!--"))
+                {
+                    inBlock = true;
+                    i += 3;
+                    continue;
+                }
+                if (cStyle && line.AsSpan(i).StartsWith("//"))
+                    break;
+                if (cStyle && line.AsSpan(i).StartsWith("/*"))
+                {
+                    inBlock = true;
+                    i++;
+                    continue;
+                }
+                if (vb && c == '\'')
+                    break;
                 if ((cStyle || vb) && (c == '"' || (cStyle && c == '\'')))
                 {
                     quote = c;
@@ -141,10 +169,13 @@ public class CodeAnalyzer
                     code = true;
                     continue;
                 }
-                if (!char.IsWhiteSpace(c)) code = true;
+                if (!char.IsWhiteSpace(c))
+                    code = true;
             }
-            if (code) count++;
-            if (!verbatim) quote = '\0';
+            if (code)
+                count++;
+            if (!verbatim)
+                quote = '\0';
         }
         return count;
     }

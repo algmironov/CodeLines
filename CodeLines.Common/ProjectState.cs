@@ -36,17 +36,21 @@ public class ProjectState
         }
         finally
         {
-            if (File.Exists(resultTemp)) File.Delete(resultTemp);
-            if (File.Exists(historyTemp)) File.Delete(historyTemp);
+            if (File.Exists(resultTemp))
+                File.Delete(resultTemp);
+            if (File.Exists(historyTemp))
+                File.Delete(historyTemp);
         }
     }
 
     public async Task<AnalysisResult?> LoadPreviousResultAsync(DirectoryInfo projectPath)
     {
         var dir = Path.Combine(projectPath.FullName, ".cline");
-        if (!Directory.Exists(dir)) return null;
+        if (!Directory.Exists(dir))
+            return null;
         var path = Directory.GetFiles(dir, "*.cline").OrderByDescending(f => f, StringComparer.Ordinal).FirstOrDefault();
-        if (path is null) return null;
+        if (path is null)
+            return null;
         await using var file = File.OpenRead(path);
         int first = file.ReadByte();
         int second = file.ReadByte();
@@ -63,9 +67,11 @@ public class ProjectState
 
     public async Task<List<HistoryEntry>> LoadHistoryAsync(DirectoryInfo projectPath, int? last)
     {
-        if (!projectPath.Exists) throw new DirectoryNotFoundException(projectPath.FullName);
+        if (!projectPath.Exists)
+            throw new DirectoryNotFoundException(projectPath.FullName);
         var path = Path.Combine(projectPath.FullName, ".cline", "history.json");
-        if (!File.Exists(path)) return [];
+        if (!File.Exists(path))
+            return [];
         var history = JsonSerializer.Deserialize(await File.ReadAllTextAsync(path), StateJsonContext.Default.ListHistoryEntry)
             ?? throw new InvalidDataException("Empty scan history.");
         return last is > 0 && last < history.Count ? history.TakeLast(last.Value).ToList() : history;

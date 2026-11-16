@@ -1,6 +1,7 @@
 ﻿using CodeLines.Common;
 
 namespace CodeLines.Cli.Commands;
+
 public class HistoryCommand
 {
     public async Task Execute(DirectoryInfo path, int? last)

@@ -41,9 +41,17 @@ public class Program
         var listPath = PathOption();
         var list = new Command("list", "Show ignore patterns") { listPath };
         list.SetAction(async result => await new IgnoreCommand().List(result.GetValue(listPath)!));
-        ignore.Add(add); ignore.Add(remove); ignore.Add(list);
-        root.Add(init); root.Add(scan); root.Add(history); root.Add(ignore);
-        try { return await root.Parse(args).InvokeAsync(new InvocationConfiguration { EnableDefaultExceptionHandler = false }); }
+        ignore.Add(add);
+        ignore.Add(remove);
+        ignore.Add(list);
+        root.Add(init);
+        root.Add(scan);
+        root.Add(history);
+        root.Add(ignore);
+        try
+        {
+            return await root.Parse(args).InvokeAsync(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
+        }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
         {
             Console.Error.WriteLine($"Error: {ex.Message}");
